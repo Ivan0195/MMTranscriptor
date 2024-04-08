@@ -6,9 +6,9 @@ import AVKit
 
 public struct SubtitleSentence: Identifiable, Codable {
     public let id: String
-    let sentence: String
-    let start: TimeInterval
-    let end: TimeInterval
+    public let sentence: String
+    public let start: TimeInterval
+    public let end: TimeInterval
     
     init(sentence: String, start: TimeInterval, end: TimeInterval) {
         self.id = UUID().uuidString
