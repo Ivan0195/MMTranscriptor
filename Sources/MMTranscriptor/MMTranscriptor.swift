@@ -65,7 +65,7 @@ public struct MMTranscriptor {
         let converter = FormatConverter(inputURL: fileURL, outputURL: tempURL, options: options)
         converter.start { error in
             if let error {
-                print("Error converting audio")
+                print("Error converting audio: \(error)")
                 return
             }
             let data = try! Data(contentsOf: tempURL)
@@ -88,14 +88,14 @@ public struct MMTranscriptor {
         
         if url.pathExtension == "mov" {
             do {
-                trackUrl = try! await self.convertMovToMP4(fileUrl: url)!
+                trackUrl = try await self.convertMovToMP4(fileUrl: url)!
             } catch {
                 return transcript
             }
         }
         do {
-            let floatArray = await self.convertAudio(fileURL: trackUrl)
-            let segments = try! await whisper.transcribe(audioFrames: floatArray)
+            let floatArray = self.convertAudio(fileURL: trackUrl)
+            let segments = try await whisper.transcribe(audioFrames: floatArray)
             transcript = segments.map {SubtitleSentence(sentence: $0.text, start: TimeInterval($0.startTime), end: TimeInterval($0.endTime))}
         } catch {
             return transcript
