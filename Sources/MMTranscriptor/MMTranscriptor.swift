@@ -25,6 +25,8 @@ public struct MMTranscriptor {
     let clock = ContinuousClock()
     
     public init (modelURL: URL, language: WhisperLanguage) {
+        whisperParams.detect_language = false
+        whisperParams.translate = false
         whisperParams.language = language
         whisper = Whisper(fromFileURL: modelURL, withParams: whisperParams)
     }
