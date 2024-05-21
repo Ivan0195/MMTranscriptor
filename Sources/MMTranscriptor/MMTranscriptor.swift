@@ -4,6 +4,24 @@ import AVFoundation
 import AudioKit
 import AVKit
 
+enum TranscriptorError: LocalizedError {
+    case unableToConvertFile
+    case transcriptionError
+    case error(title: String?, message: String?)
+    
+    var errorDescription: String? {
+        switch self {
+        case .unableToConvertFile:
+            return "Can't convert provided file extension"
+        case .transcriptionError:
+            return "Some error occured while transcription"
+        case .error(title: let title, message: let message):
+            return message
+        }
+    }
+}
+
+
 public struct SubtitleSentence: Identifiable, Codable {
     public let id: String
     public let sentence: String
@@ -22,12 +40,14 @@ public struct MMTranscriptor {
     
     var whisper: Whisper
     var whisperParams: WhisperParams = WhisperParams(strategy: .greedy)
-    let clock = ContinuousClock()
     
     public init (modelURL: URL, language: WhisperLanguage) {
         whisperParams.detect_language = false
         whisperParams.translate = false
         whisperParams.language = language
+        whisperParams.speed_up = true
+        whisperParams.suppress_blank = true
+        whisperParams.suppress_non_speech_tokens = true
         whisper = Whisper(fromFileURL: modelURL, withParams: whisperParams)
     }
     
@@ -83,7 +103,7 @@ public struct MMTranscriptor {
         return floatsArray
     }
     
-    public func transcribe (url: URL) async throws -> [SubtitleSentence]? {
+    public func transcribe (url: URL) async throws -> [SubtitleSentence] {
         
         var trackUrl = url
         var transcript: [SubtitleSentence] = []
@@ -92,7 +112,7 @@ public struct MMTranscriptor {
             do {
                 trackUrl = try await self.convertMovToMP4(fileUrl: url)!
             } catch {
-                return transcript
+                throw TranscriptorError.unableToConvertFile
             }
         }
         do {
@@ -100,7 +120,31 @@ public struct MMTranscriptor {
             let segments = try await whisper.transcribe(audioFrames: floatArray)
             transcript = segments.map {SubtitleSentence(sentence: $0.text, start: TimeInterval($0.startTime), end: TimeInterval($0.endTime))}
         } catch {
-            return transcript
+            throw TranscriptorError.transcriptionError
+        }
+        return transcript
+    }
+    
+    public func transcribeToRawText (url: URL) async throws -> String {
+        
+        var trackUrl = url
+        var transcript = ""
+        
+        if url.pathExtension == "mov" {
+            do {
+                trackUrl = try await self.convertMovToMP4(fileUrl: url)!
+            } catch {
+                throw TranscriptorError.unableToConvertFile
+            }
+        }
+        do {
+            let floatArray = self.convertAudio(fileURL: trackUrl)
+            let segments = try await whisper.transcribe(audioFrames: floatArray)
+            transcript = segments.reduce("", {acc, sub in
+                acc + " " + sub.text
+            })
+        } catch {
+            throw TranscriptorError.transcriptionError
         }
         return transcript
     }
